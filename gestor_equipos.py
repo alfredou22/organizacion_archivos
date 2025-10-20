@@ -5,6 +5,9 @@ from datetime import datetime
 # Nombre del archivo CSV donde se guardarán los datos
 NOMBRE_ARCHIVO = 'equipos.csv'
 
+# Índice en memoria: tipo -> list de offsets (posiciones en el archivo)
+INDICE_TIPO = {}
+
 def agregar_equipo(nombre_archivo):
     """
     Añade un nuevo equipo al archivo CSV.
@@ -40,6 +43,13 @@ def agregar_equipo(nombre_archivo):
             writer.writerow([id_equipo, nombre, tipo, valor_calibracion, fecha_mantenimiento_str])
         
         print(f"\n✅ ¡Equipo '{nombre}' agregado exitosamente!")
+
+        # Reconstruir índice por tipo después de agregar un nuevo equipo
+        try:
+            construir_indice_tipo(nombre_archivo)
+        except Exception:
+            # No queremos que un fallo en el índice impida la operación principal
+            pass
 
     except ValueError:
         print("\n❌ Error: ID y Valor de Calibración deben ser números. Inténtelo de nuevo.")
@@ -206,10 +216,101 @@ def buscar_equipo_por_id_acceso_directo(nombre_archivo, id_buscar=None):
         print(f"Ocurrió un error al buscar por ID: {e}")
 
 
+def construir_indice_tipo(nombre_archivo):
+    """
+    Construye el índice en memoria INDICE_TIPO que mapea cada tipo de equipo
+    a una lista de offsets (posiciones) en el archivo donde comienzan las líneas
+    correspondientes a equipos de ese tipo.
+
+    Este índice debe ser llamado al inicio del programa y después de agregar equipos.
+    """
+    global INDICE_TIPO
+    INDICE_TIPO = {}
+    try:
+        with open(nombre_archivo, mode='r', encoding='utf-8', newline='') as archivo:
+            # Leer y descartar encabezado
+            encabezado = archivo.readline()
+            if not encabezado:
+                return
+
+            while True:
+                offset = archivo.tell()
+                linea = archivo.readline()
+                if not linea:
+                    break
+                try:
+                    fila = next(csv.reader([linea]))
+                except Exception:
+                    continue
+                if len(fila) < 3:
+                    continue
+                tipo = fila[2].strip()
+                if tipo not in INDICE_TIPO:
+                    INDICE_TIPO[tipo] = []
+                INDICE_TIPO[tipo].append(offset)
+    except FileNotFoundError:
+        # Si no existe aún el archivo, dejamos el índice vacío
+        INDICE_TIPO = {}
+
+
+def buscar_por_tipo_con_indice(nombre_archivo, tipo_buscar=None):
+    """
+    Busca y lista todos los equipos de un tipo utilizando el índice INDICE_TIPO
+    y seek() para posicionarse directamente en cada registro.
+
+    Si tipo_buscar es None, solicita el tipo al usuario.
+    """
+    print("\n--- Buscar Equipos por Tipo (usando índice y seek) ---")
+    try:
+        # Asegurarse de que el índice esté construido
+        if not INDICE_TIPO:
+            construir_indice_tipo(nombre_archivo)
+
+        if tipo_buscar is None:
+            tipo_buscar = input("Ingrese el tipo de equipo a buscar (ej. Sensor, Actuador): ").strip()
+
+        if tipo_buscar not in INDICE_TIPO or len(INDICE_TIPO[tipo_buscar]) == 0:
+            print(f"No se encontraron equipos del tipo '{tipo_buscar}'.")
+            return
+
+        with open(nombre_archivo, mode='r', encoding='utf-8', newline='') as archivo:
+            # Leer encabezado para obtener nombres de columnas
+            encabezado_line = archivo.readline()
+            encabezados = next(csv.reader([encabezado_line.strip()])) if encabezado_line else []
+
+            print(f"Equipos del tipo '{tipo_buscar}':")
+            print("-" * 70)
+            for offset in INDICE_TIPO[tipo_buscar]:
+                archivo.seek(offset)
+                linea = archivo.readline()
+                try:
+                    fila = next(csv.reader([linea]))
+                except Exception:
+                    continue
+                # Mostrar la línea formateada con todos los campos
+                if encabezados and len(fila) == len(encabezados):
+                    for cab, val in zip(encabezados, fila):
+                        print(f"{cab}: {val}")
+                    print("-" * 40)
+                else:
+                    print(linea.rstrip('\n'))
+
+    except FileNotFoundError:
+        print(f"El archivo '{nombre_archivo}' no existe. Agregue un equipo primero.")
+    except Exception as e:
+        print(f"Ocurrió un error al buscar por tipo: {e}")
+
+
 def main():
     """
     Función principal que muestra el menú de opciones.
     """
+    # Construir índice por tipo al iniciar el programa
+    try:
+        construir_indice_tipo(NOMBRE_ARCHIVO)
+    except Exception:
+        pass
+
     while True:
         print("\n--- 🏭 Sistema de Gestión de Equipos de Control ---")
         print("1. Agregar un nuevo equipo")
@@ -218,6 +319,7 @@ def main():
         print("4. Salir")
         print("5. Leer archivo secuencialmente (mostrar todas las líneas)")
         print("6. Buscar equipo por ID (acceso directo con seek)")
+        print("7. Buscar y listar equipos por Tipo (índice)")
 
         opcion = input("Seleccione una opción: ")
 
@@ -231,6 +333,8 @@ def main():
             leer_secuencial(NOMBRE_ARCHIVO)
         elif opcion == '6':
             buscar_equipo_por_id_acceso_directo(NOMBRE_ARCHIVO)
+        elif opcion == '7':
+            buscar_por_tipo_con_indice(NOMBRE_ARCHIVO)
         elif opcion == '4':
             print("\nSaliendo del programa. ¡Hasta luego!")
             break
