@@ -1,0 +1,7 @@
+ID,Nombre,Tipo,Valor de Calibracion,Ultimo Mantenimiento
+1,Termopar K-101,Sensor de temperatura,150.5,2023-01-15
+2,Manometro P-205,Sensor de presion,10.2,2023-02-20
+3,Valvula de control V-301,Actuador,5.0,2023-03-10
+4,Medidor de flujo F-402,Sensor de flujo,120.75,2024-11-16
+5,Controlador PID C-501,Controlador,25.5,2023-11-20
+6,Servomotor S-904,Actuador,90.5,2025-10-20
