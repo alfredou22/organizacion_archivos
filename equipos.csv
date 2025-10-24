@@ -5,3 +5,4 @@ ID,Nombre,Tipo,Valor de Calibracion,Ultimo Mantenimiento
 4,Medidor de flujo F-402,Sensor de flujo,120.75,2024-11-16
 5,Controlador PID C-501,Controlador,25.5,2023-11-20
 6,Servomotor S-904,Actuador,90.5,2025-10-20
+11,Sensor de nivel N-055,Sensor,44.5,2025-10-22
